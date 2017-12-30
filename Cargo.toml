@@ -1,0 +1,9 @@
+[package]
+name = "ptt-crawler"
+version = "0.1.0"
+authors = ["SLMT <sam123456777@gmail.com>"]
+
+[dependencies]
+telnet = "0.1.0"
+encoding = "0.2"
+ansi-escapes = "0.1.0"

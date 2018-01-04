@@ -1,4 +1,6 @@
 
+use std::time::Duration;
+
 use encoding::all::BIG5_2003;
 use encoding::types::{Encoding, DecoderTrap};
 
@@ -20,9 +22,13 @@ impl PttConnection {
 
     pub fn doathing(&mut self) {
         loop {
-            let event = self.tel_conn.read().expect("IO 錯誤");
+            let event = self.tel_conn.read_timeout(Duration::new(5, 0)).expect("IO 錯誤");
             if let TelnetEvent::Data(data) = event {
                 self.screen.process(&data);
+            } else if let TelnetEvent::TimedOut = event {
+                self.screen.print_screen();
+            } else {
+                // print!("{:?}", event);
             }
         }
     }

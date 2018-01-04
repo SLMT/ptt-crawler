@@ -72,63 +72,80 @@ enum ProcessState {
     CSI
 }
 
-pub fn tokenize(bytes: &[u8]) -> Result<Vec<AnsiToken>, String> {
-    let mut tokens = vec![];
-    let mut state = ProcessState::Text;
-    let mut text_start: usize = 0;
-    let mut param_start: usize = 0;
+pub struct AnsiTokenizer {
+    state: ProcessState,
+    csi_param: Vec<u8>
+}
 
-    for i in 0 .. bytes.len() {
-        let byte = bytes[i];
-        match state {
-            ProcessState::Text => {
-                match byte {
-                    ESC => {
-                        if i > text_start {
-                            tokens.push(AnsiToken::Text(&bytes[text_start .. i]));
-                        }
-                        state = ProcessState::Escaping;
-                    },
-                    _ => {}
-                }
-            },
-            ProcessState::Escaping => {
-                match byte {
-                    ESC_CSI => {
-                        state = ProcessState::CSI;
-                        param_start = i + 1;
-                    },
-                    b => {
-                        tokens.push(AnsiToken::UnknownEscape(b));
-                        state = ProcessState::Text;
-                        text_start = i + 1;
-                    }
-                }
-            },
-            ProcessState::CSI => {
-                if is_csi_final_byte(byte) {
-                    // Process the sequence
-                    let params = parse_csi_param(&bytes[param_start .. i]);
-                    let token = match match_csi(byte, params) {
-                        Ok(t) => t,
-                        Err(msg) => return Err(msg)
-                    };
-                    tokens.push(token);
-
-                    state = ProcessState::Text;
-                    text_start = i + 1;
-                } else if !is_csi_param_or_interm_byte(byte) {
-                    return Err(format!("Undefined byte occurred in control sequences: {}", byte));
-                }
-            }
+impl AnsiTokenizer {
+    pub fn new() -> AnsiTokenizer {
+        AnsiTokenizer {
+            state: ProcessState::Text,
+            csi_param: vec![]
         }
     }
 
-    if bytes.len() > text_start {
-        tokens.push(AnsiToken::Text(&bytes[text_start .. bytes.len()]));
-    }
+    pub fn tokenize<'a, 'b>(&'a mut self, bytes: &'b [u8]) -> Result<Vec<AnsiToken<'b>>, String> {
+        let mut tokens = vec![];
+        let mut text_start: usize = 0;
 
-    Ok(tokens)
+        for i in 0 .. bytes.len() {
+            let byte = bytes[i];
+            match self.state {
+                ProcessState::Text => {
+                    match byte {
+                        ESC => {
+                            if i > text_start {
+                                tokens.push(AnsiToken::Text(&bytes[text_start .. i]));
+                            }
+                            self.state = ProcessState::Escaping;
+                        },
+                        _ => {}
+                    }
+                },
+                ProcessState::Escaping => {
+                    match byte {
+                        ESC_CSI => {
+                            self.state = ProcessState::CSI;
+                        },
+                        b => {
+                            tokens.push(AnsiToken::UnknownEscape(b));
+                            self.state = ProcessState::Text;
+                            text_start = i + 1;
+                        }
+                    }
+                },
+                ProcessState::CSI => {
+                    if is_csi_final_byte(byte) {
+                        // Process the sequence
+                        let params = parse_csi_param(&self.csi_param);
+                        self.csi_param.clear();
+
+                        let token = match match_csi(byte, params) {
+                            Ok(t) => t,
+                            Err(msg) => return Err(msg)
+                        };
+                        tokens.push(token);
+
+                        self.state = ProcessState::Text;
+                        text_start = i + 1;
+                    } else if is_csi_param_or_interm_byte(byte) {
+                        self.csi_param.push(byte);
+                    } else {
+                        return Err(format!("Undefined byte occurred in control sequences: {}", byte));
+                    }
+                }
+            }
+        }
+
+        if let ProcessState::Text = self.state {
+            if bytes.len() > text_start {
+                tokens.push(AnsiToken::Text(&bytes[text_start .. bytes.len()]));
+            }
+        }
+
+        Ok(tokens)
+    }
 }
 
 fn match_csi(final_byte: u8, params: ParamList) -> Result<AnsiToken<'static>, String> {

@@ -22,7 +22,7 @@ impl PttConnection {
 
     pub fn doathing(&mut self) {
         loop {
-            let event = self.tel_conn.read_timeout(Duration::new(5, 0)).expect("IO 錯誤");
+            let event = self.tel_conn.read_timeout(Duration::new(3, 0)).expect("IO 錯誤");
             if let TelnetEvent::Data(data) = event {
                 self.screen.process(&data);
             } else if let TelnetEvent::TimedOut = event {

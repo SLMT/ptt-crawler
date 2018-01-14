@@ -53,10 +53,20 @@ impl Screen {
                 AnsiToken::EraseDisplay(opt) => {
                     match opt {
                         EraseOption::EraseEntire => {
-                            self.clear_screen();
+                            self.erase_screen();
                         },
                         _ => {
-                            println!("Unhandled Erase Operation: {:?}", opt);
+                            println!("Unhandled EraseDisplay Operation: {:?}", opt);
+                        }
+                    }
+                },
+                AnsiToken::EraseLine(opt) => {
+                    match opt {
+                        EraseOption::EraseToEnd => {
+                            self.erase_to_end(true);
+                        },
+                        _ => {
+                            println!("Unhandled EraseLine Operation: {:?}", opt);
                         }
                     }
                 },
@@ -100,12 +110,29 @@ impl Screen {
     }
 
     pub fn print_screen(&self) {
+        println!("==============================================================================");
         for i in 0 .. SCREEN_HEIGHT {
             println!("{:02}| {}", i + 1, BIG5_2003.decode(&self.lines[i][..], DecoderTrap::Ignore).expect("Big5 解碼錯誤"));
         }
+        println!("==============================================================================");
     }
 
-    fn clear_screen(&mut self) {
+    fn erase_to_end(&mut self, only_line: bool) {
+        for i in self.cursor.1 .. SCREEN_WIDTH {
+            self.lines[self.cursor.0][i] = SPACE_BYTE;
+        }
+
+        // Erase the area below the current line
+        if !only_line {
+            for i in self.cursor.0 + 1 .. SCREEN_HEIGHT {
+                for j in 0 .. SCREEN_WIDTH {
+                    self.lines[i][j] = SPACE_BYTE;
+                }
+            }
+        }
+    }
+
+    fn erase_screen(&mut self) {
         for i in 0 .. SCREEN_HEIGHT {
             for j in 0 .. SCREEN_WIDTH {
                 self.lines[i][j] = SPACE_BYTE;

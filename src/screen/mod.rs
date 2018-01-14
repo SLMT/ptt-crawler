@@ -77,6 +77,17 @@ impl Screen {
         }
     }
 
+    pub fn check_string(&self, pattern: &str) -> bool {
+        for i in 0 .. SCREEN_HEIGHT {
+            let s = BIG5_2003.decode(&self.lines[i][..], DecoderTrap::Ignore).expect("Big5 解碼錯誤");
+            if let Some(_) = s.find(pattern) {
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn backspace(&mut self) {
         self.lines[self.cursor.0][self.cursor.1] = SPACE_BYTE;
         if self.cursor.1 > 0 {
@@ -93,6 +104,9 @@ impl Screen {
         match byte {
             0 => {  // NUL: Null (\0)
                 self.print_screen();
+            },
+            7 => { // BEL: BELL (\a)
+                // Do nothing
             },
             8 => {  // BS: Backspace (\b)
                 self.backspace();

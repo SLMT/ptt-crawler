@@ -9,7 +9,5 @@ use ptt::PttConnection;
 
 fn main() {
     let mut connection = PttConnection::new();
-    loop {
-        connection.doathing();
-    }
+    connection.doathing();
 }

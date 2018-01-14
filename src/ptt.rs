@@ -21,38 +21,42 @@ impl PttConnection {
     }
 
     pub fn doathing(&mut self) {
+        self.login();
+    }
+
+    pub fn login(&mut self) {
+        self.skip_until("請輸入代號");
+        self.tel_conn.write(&(format!("SLMT\r").into_bytes())).expect("寫入錯誤");
+        self.read_to_timeout();
+        self.screen.print_screen();
+    }
+
+    fn skip_until(&mut self, pattern: &str) {
         loop {
             let event = self.tel_conn.read_timeout(Duration::new(3, 0)).expect("IO 錯誤");
             if let TelnetEvent::Data(data) = event {
                 self.screen.process(&data);
+                if self.screen.check_string(pattern) {
+                    return;
+                }
             } else if let TelnetEvent::TimedOut = event {
                 self.screen.print_screen();
+                if self.screen.check_string(pattern) {
+                    return;
+                }
             } else {
                 // print!("{:?}", event);
             }
         }
     }
 
-    pub fn login(&mut self) {
-        self.skip_until("請輸入代號");
-        self.tel_conn.write(&(format!("SLMT\r").into_bytes())).expect("寫入錯誤");
-        println!("{:?}", self.read_string());
-    }
-
-    fn read_string(&mut self) -> String {
+    fn read_to_timeout(&mut self) {
         loop {
-            let event = self.tel_conn.read().expect("IO 錯誤");
+            let event = self.tel_conn.read_timeout(Duration::new(3, 0)).expect("IO 錯誤");
             if let TelnetEvent::Data(data) = event {
-                return BIG5_2003.decode(&data, DecoderTrap::Ignore).expect("Big5 解碼錯誤");
-            }
-        }
-    }
-
-    fn skip_until(&mut self, pattern: &str) -> usize {
-        loop {
-            let string = self.read_string();
-            if let Some(index) = string.find(pattern) {
-                return index;
+                self.screen.process(&data);
+            } else if let TelnetEvent::TimedOut = event {
+                return;
             }
         }
     }

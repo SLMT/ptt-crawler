@@ -1,11 +1,12 @@
 
 use std::time::Duration;
 
-use encoding::all::BIG5_2003;
-use encoding::types::{Encoding, DecoderTrap};
-
 use telnet::{Telnet, TelnetEvent};
 use screen::Screen;
+
+const BYTE_CR: u8 = '\r' as u8;
+const BYTE_LF: u8 = '\n' as u8;
+const BYTE_SPACE: u8 = ' ' as u8;
 
 pub struct PttConnection {
     tel_conn: Telnet,
@@ -20,14 +21,40 @@ impl PttConnection {
         }
     }
 
-    pub fn doathing(&mut self) {
-        self.login();
-    }
-
-    pub fn login(&mut self) {
+    pub fn login(&mut self, account: &str, password: &str) {
         self.skip_until("請輸入代號");
-        self.tel_conn.write(&(format!("SLMT\r").into_bytes())).expect("寫入錯誤");
+        self.tel_conn.write(account.as_bytes()).expect("寫入錯誤");
+        self.write_enter();
+        self.tel_conn.write(password.as_bytes()).expect("寫入錯誤");
+        self.write_enter();
+
+        // XXX: 因為它可能出現「載入中」的字樣，也許是要改成判斷「請重新輸入」或「歡迎您再度拜訪」
+        // 其中之一是否有出現
+
         self.read_to_timeout();
+
+        if self.screen.check_string("請重新輸入") {
+            panic!("帳號或密碼錯誤");
+        }
+
+        if !self.screen.check_string("歡迎您再度拜訪") {
+            self.screen.print_screen();
+            panic!("Something wrong");
+        }
+
+        println!("登入成功！");
+
+        let mut try_count = 0;
+        while !self.screen.check_string("主功能表") {
+            self.tel_conn.write(&[BYTE_SPACE]).expect("寫入錯誤");
+            self.read_to_timeout();
+
+            try_count += 1;
+            if try_count > 5 {
+                panic!("Something wrong");
+            }
+        }
+
         self.screen.print_screen();
     }
 
@@ -59,5 +86,9 @@ impl PttConnection {
                 return;
             }
         }
+    }
+
+    fn write_enter(&mut self) {
+        self.tel_conn.write(&[BYTE_CR, BYTE_LF]).expect("寫入錯誤");
     }
 }

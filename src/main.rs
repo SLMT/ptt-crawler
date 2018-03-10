@@ -18,4 +18,5 @@ fn main() {
 
     let mut connection = PttConnection::new();
     connection.login(&account, &password);
+    connection.go_to_first_board();
 }

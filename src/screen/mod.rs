@@ -88,6 +88,10 @@ impl Screen {
         false
     }
 
+    pub fn get_cursor_position(&self) -> (usize, usize) {
+        self.cursor.clone()
+    }
+
     fn backspace(&mut self) {
         self.lines[self.cursor.0][self.cursor.1] = SPACE_BYTE;
         if self.cursor.1 > 0 {
@@ -103,7 +107,7 @@ impl Screen {
     fn handle_control_byte(&mut self, byte: u8) {
         match byte {
             0 => {  // NUL: Null (\0)
-                self.print_screen();
+                println!("'\\0' (Null) appears");
             },
             7 => { // BEL: BELL (\a)
                 // Do nothing

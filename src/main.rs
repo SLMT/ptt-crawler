@@ -2,11 +2,14 @@ extern crate encoding;
 extern crate telnet;
 extern crate ansi_escapes;
 
+mod error;
 mod screen;
 mod ptt;
 
-use ptt::PttConnection;
 use std::env;
+
+use error::CrawlerError;
+use ptt::PttConnection;
 
 fn main() {
     if env::args().count() < 3 {
@@ -17,6 +20,19 @@ fn main() {
     let password = env::args().nth(2).unwrap();
 
     let mut connection = PttConnection::new();
-    connection.login(&account, &password);
-    connection.go_to_first_board();
+    if let Err(error_type) = execute(&mut connection, &account, &password) {
+        println!("Error: {}", error_type);
+        println!("Print the current screen:");
+        connection.print_screen();
+    }
+}
+
+fn execute(connection: &mut PttConnection, account: &str, password: &str) -> Result<(), CrawlerError> {
+    connection.login(account, password)?;
+    connection.go_to_first_board()?;
+
+    // Debug
+    connection.print_screen();
+
+    Ok(())
 }

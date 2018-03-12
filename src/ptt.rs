@@ -2,6 +2,8 @@
 use std::time::Duration;
 
 use telnet::{Telnet, TelnetEvent};
+
+use error::CrawlerError;
 use screen::Screen;
 
 const BYTE_CR: u8 = '\r' as u8;
@@ -26,7 +28,11 @@ impl PttConnection {
         }
     }
 
-    pub fn login(&mut self, account: &str, password: &str) {
+    pub fn print_screen(&self) {
+        self.screen.print_screen();
+    }
+
+    pub fn login(&mut self, account: &str, password: &str) -> Result<(), CrawlerError> {
         self.skip_until("請輸入代號");
         self.tel_conn.write(account.as_bytes()).expect("寫入錯誤");
         self.write_enter();
@@ -38,11 +44,9 @@ impl PttConnection {
 
         if !self.skip_until("歡迎您再度拜訪") {
             if self.screen.check_string("請重新輸入") {
-                panic!("帳號或密碼錯誤");
+                return Err(CrawlerError::UsernameOrPasswordWrong);
             }
-
-            self.screen.print_screen();
-            panic!("Something wrong");
+            return Err(CrawlerError::SomethingWrong(1));
         }
 
         println!("登入成功！");
@@ -54,12 +58,14 @@ impl PttConnection {
 
             try_count += 1;
             if try_count > 5 {
-                panic!("Something wrong");
+                return Err(CrawlerError::SomethingWrong(2));
             }
         }
+
+        Ok(())
     }
 
-    pub fn go_to_first_board(&mut self) {
+    pub fn go_to_first_board(&mut self) -> Result<(), CrawlerError> {
         self.tel_conn.write(&ARROW_RIGHT).expect("寫入錯誤");
         self.skip_until("即時熱門看板");
         self.tel_conn.write(&ARROW_UP).expect("寫入錯誤");
@@ -72,10 +78,12 @@ impl PttConnection {
 
         if !self.skip_until("看板《Gossiping》") {
             self.screen.print_screen();
-            panic!("Something wrong");
+            return Err(CrawlerError::SomethingWrong(3));
         }
 
         println!("進入八卦版！");
+
+        Ok(())
     }
 
     fn skip_until(&mut self, pattern: &str) -> bool {
